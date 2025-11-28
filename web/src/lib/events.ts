@@ -2,7 +2,15 @@ export type ApplicantEventType =
     | 'APPLICANT_CREATED'
     | 'EXAM_RESULT_ADDED'
     | 'PREFERENCE_UPDATED'
-    | 'DOCUMENT_UPLOADED';
+    | 'DOCUMENT_UPLOADED'
+    | 'APPLICATION_SUBMITTED';
+
+export interface Application {
+    program: string;
+    institutionDid: string;
+    dateSubmitted: string;
+    status: 'SUBMITTED' | 'UNDER_REVIEW' | 'OFFER_RECEIVED' | 'REJECTED';
+}
 
 export interface ApplicantProfile {
     did: string;
@@ -14,6 +22,7 @@ export interface ApplicantProfile {
         institution?: string;
     };
     documents: DocumentRef[];
+    applications: Application[];
     createdAt: string;
     updatedAt: string;
 }
@@ -60,4 +69,9 @@ export interface DocumentUploadedPayload {
     type: string;
     url: string;
     hash: string;
+}
+
+export interface ApplicationSubmittedPayload {
+    program: string;
+    institutionDid: string;
 }

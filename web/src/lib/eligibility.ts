@@ -15,9 +15,6 @@ export class EligibilityService {
         if (!profile) return [];
 
         // 2. Get All Active Rules
-        // In a real system, we would query a "Rules View" table.
-        // Here, we scan the ledger for RULE_DEFINED events.
-        // Optimization: We should cache the latest rule for each (institution, program) pair.
         const events = await ledger.getLedger();
         const rulesMap = new Map<string, AdmissionRule>();
 
@@ -25,7 +22,6 @@ export class EligibilityService {
             if (event.type === 'RULE_DEFINED') {
                 const rule = JSON.parse(event.payload) as AdmissionRule;
                 const key = `${rule.institutionDid}:${rule.program}`;
-                // Overwrite with latest (assuming ledger order is chronological)
                 rulesMap.set(key, rule);
             }
         }
@@ -45,11 +41,11 @@ export class EligibilityService {
 
     /**
      * Finds all applicants eligible for a specific rule.
-     * WARNING: Expensive operation (O(N*M)). Needs indexing in production.
      */
     async findEligibleApplicants(institutionDid: string, program: string): Promise<{ profile: ApplicantProfile, score: number }[]> {
+        console.log(`EligibilityService: Finding applicants for ${program} at ${institutionDid}`);
+
         // 1. Get the specific rule
-        // (Reusing the scan logic for prototype simplicity)
         const events = await ledger.getLedger();
         let targetRule: AdmissionRule | null = null;
 
@@ -57,15 +53,17 @@ export class EligibilityService {
             if (event.type === 'RULE_DEFINED') {
                 const rule = JSON.parse(event.payload) as AdmissionRule;
                 if (rule.institutionDid === institutionDid && rule.program === program) {
-                    targetRule = rule; // Keep updating to get the latest
+                    targetRule = rule;
                 }
             }
         }
 
-        if (!targetRule) return [];
+        if (!targetRule) {
+            console.log(`EligibilityService: Rule not found.`);
+            return [];
+        }
 
         // 2. Get All Applicants
-        // We need to find all unique DIDs that have APPLICANT_CREATED events
         const applicantDids = new Set<string>();
         for (const event of events) {
             if (event.type === 'APPLICANT_CREATED') {
@@ -73,6 +71,7 @@ export class EligibilityService {
                 applicantDids.add(payload.did);
             }
         }
+        console.log(`EligibilityService: Found ${applicantDids.size} total applicants.`);
 
         // 3. Evaluate each applicant
         const eligibleApplicants: { profile: ApplicantProfile, score: number }[] = [];
@@ -83,6 +82,8 @@ export class EligibilityService {
                 const result = rulesEngine.evaluateApplicant(profile, targetRule);
                 if (result.eligible) {
                     eligibleApplicants.push({ profile, score: result.score });
+                } else {
+                    console.log(`Applicant ${profile.name} (${did}) NOT eligible: ${result.reasons.join(', ')}`);
                 }
             }
         }

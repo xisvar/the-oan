@@ -41,6 +41,7 @@ export class StateEngine {
             examResults: [],
             preferences: {},
             documents: [],
+            applications: [],
             createdAt: '',
             updatedAt: '',
         };
@@ -84,6 +85,19 @@ export class StateEngine {
                     });
                     break;
 
+                case 'APPLICATION_SUBMITTED':
+                    const p5 = payload as any; // ApplicationSubmittedPayload
+                    // Avoid duplicates
+                    if (!state.applications.find(a => a.program === p5.program && a.institutionDid === p5.institutionDid)) {
+                        state.applications.push({
+                            program: p5.program,
+                            institutionDid: p5.institutionDid,
+                            dateSubmitted: timestamp,
+                            status: 'SUBMITTED'
+                        });
+                    }
+                    break;
+
                 // Handle CREDENTIAL_ISSUED from the Issue API (Phase 1/2 legacy event)
                 // We map it to an exam result if it fits
                 case 'CREDENTIAL_ISSUED' as any:
@@ -95,6 +109,8 @@ export class StateEngine {
             state.updatedAt = timestamp;
         }
 
+        console.log(`StateEngine: Computed state for ${did}. Exams: ${state.examResults.length}`);
+        if (state.examResults.length > 0) console.log(JSON.stringify(state.examResults));
         return state;
     }
 }
