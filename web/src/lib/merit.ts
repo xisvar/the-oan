@@ -92,6 +92,48 @@ export class MeritEngine {
             }
         };
     }
+    /**
+     * Phase 10: Advanced Merit Calculation
+     * Formula: (0.6 * JAMB%) + (0.3 * WAEC%) + (0.1 * PostUTME%)
+     * JAMB: Scaled to 100 (Score / 4)
+     * WAEC: Scaled to 100 (Average / 8 * 100)
+     * PostUTME: Assumed 0-100
+     */
+    computeAdvancedMeritIndex(
+        jambScore: number, // 0-400
+        waecGrades: string[], // ['A1', 'B2', ...]
+        postUtmeScore: number = 0 // 0-100
+    ): number {
+        // 1. JAMB Component (60%)
+        const jambPercent = (jambScore / 400) * 100;
+
+        // 2. WAEC Component (30%)
+        const gradeMap: Record<string, number> = {
+            'A1': 8, 'B2': 7, 'B3': 6, 'C4': 5, 'C5': 4, 'C6': 3, 'D7': 2, 'E8': 1, 'F9': 0
+        };
+
+        let totalPoints = 0;
+        let validSubjects = 0;
+
+        for (const g of waecGrades) {
+            const grade = g.toUpperCase();
+            if (gradeMap[grade] !== undefined) {
+                totalPoints += gradeMap[grade];
+                validSubjects++;
+            }
+        }
+
+        const waecAvg = validSubjects > 0 ? totalPoints / validSubjects : 0;
+        const waecPercent = (waecAvg / 8) * 100;
+
+        // 3. Post UTME Component (10%)
+        const postUtmePercent = postUtmeScore; // Assuming input is 0-100
+
+        // Weighted Sum
+        const meritIndex = (0.6 * jambPercent) + (0.3 * waecPercent) + (0.1 * postUtmePercent);
+
+        return parseFloat(meritIndex.toFixed(2)); // Return 2 decimal places
+    }
 }
 
 export const meritEngine = new MeritEngine();

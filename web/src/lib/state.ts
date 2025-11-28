@@ -98,6 +98,16 @@ export class StateEngine {
                     }
                     break;
 
+                case 'UTME_RESULT_ADDED':
+                    const p6 = payload as any; // UtmeResultAddedPayload
+                    state.utmeResult = {
+                        jambScore: p6.jambScore,
+                        subjectCombo: p6.subjectCombo,
+                        postUtmeScore: p6.postUtmeScore,
+                        dateAdded: timestamp
+                    };
+                    break;
+
                 // Handle CREDENTIAL_ISSUED from the Issue API (Phase 1/2 legacy event)
                 // We map it to an exam result if it fits
                 case 'CREDENTIAL_ISSUED' as any:

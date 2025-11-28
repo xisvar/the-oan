@@ -23,3 +23,127 @@ model LedgerEvent {
   @@index([hash])
   @@index([prevHash])
 }
+
+// --- Phase 10: Realism Expansion Models ---
+
+model StudentIdentity {
+  id              String   @id @default(uuid())
+  jamb_reg_number String   @unique
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  
+  profile         StudentProfile?
+  examResults     ExamResult[]
+  utmeResult      UTMEResult?
+  stream          StreamClassification?
+  eligibility     Eligibility[]
+  meritRankings   MeritRanking[]
+  admission       AdmissionDecision[]
+}
+
+model StudentProfile {
+  id              String   @id @default(uuid())
+  student         StudentIdentity @relation(fields: [student_id], references: [id])
+  student_id      String   @unique
+  first_name      String
+  last_name       String
+  email           String
+  phone           String
+  state_of_origin String
+  lga             String
+  preferred_schools String // JSON array of strings
+  intended_stream String // Enum: SCIENCE, COMMERCIAL, ARTS
+  behavior_tag    String?
+}
+
+model ExamResult {
+  id          String   @id @default(uuid())
+  student     StudentIdentity @relation(fields: [student_id], references: [id])
+  student_id  String
+  exam_type   String // WAEC, NECO
+  exam_year   Int
+  subjects    String // JSON array of { subject_name, grade }
+}
+
+model UTMEResult {
+  id              String   @id @default(uuid())
+  student         StudentIdentity @relation(fields: [student_id], references: [id])
+  student_id      String   @unique
+  jamb_score      Int
+  subject_combo   String // JSON
+  post_utme_score Int?
+}
+
+model StreamClassification {
+  id          String   @id @default(uuid())
+  student     StudentIdentity @relation(fields: [student_id], references: [id])
+  student_id  String   @unique
+  stream      String // SCIENCE, COMMERCIAL, ARTS
+  confidence  Int
+  source      String
+  created_at  DateTime @default(now())
+}
+
+model School {
+  id              String   @id @default(uuid())
+  name            String
+  rank_nigeria    Int
+  rank_world      String
+  teaching_score  Float
+  research_env    Float
+  research_quality Float
+  industry        Float
+  international_outlook Float
+  global_profile  String? // JSON
+
+  programs        Program[]
+}
+
+model Program {
+  id              String   @id @default(uuid())
+  school          School   @relation(fields: [school_id], references: [id])
+  school_id       String
+  program_name    String
+  quota_total     Int
+  quota_merit     Int
+  quota_catchment Int
+  quota_elds      Int
+  base_cutoff     Int
+  
+  eligibility     Eligibility[]
+  meritRankings   MeritRanking[]
+  admissions      AdmissionDecision[]
+}
+
+model Eligibility {
+  id          String   @id @default(uuid())
+  student     StudentIdentity @relation(fields: [student_id], references: [id])
+  student_id  String
+  program     Program  @relation(fields: [program_id], references: [id])
+  program_id  String
+  is_eligible Boolean
+  reason      String
+  computed_at DateTime @default(now())
+}
+
+model MeritRanking {
+  id          String   @id @default(uuid())
+  student     StudentIdentity @relation(fields: [student_id], references: [id])
+  student_id  String
+  program     Program  @relation(fields: [program_id], references: [id])
+  program_id  String
+  merit_score Float
+  rank        Int
+  batch_id    String
+}
+
+model AdmissionDecision {
+  id          String   @id @default(uuid())
+  program     Program  @relation(fields: [program_id], references: [id])
+  program_id  String
+  student     StudentIdentity @relation(fields: [student_id], references: [id])
+  student_id  String
+  decision    String // ADMITTED, WAITLISTED, REJECTED
+  decision_reason String
+  created_at  DateTime @default(now())
+}

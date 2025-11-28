@@ -61,43 +61,111 @@ export class MatchingService {
 
         // 3. Compute Merit Index (MI) for each applicant
         const rankedList: ApplicantScore[] = eligiblePool.map(candidate => {
-            // Extract priority flags from profile (mocking for now as profile doesn't have them explicitly)
+            // Extract priority flags (Mocking for now)
             const priorityFlags = {
-                elds: false,
-                catchment: false,
+                elds: false, // In real system, derived from State/LGA
+                catchment: false, // Derived from State/LGA vs School State
                 disability: false
             };
 
-            // Extract raw score (sum of exams)
-            const examScore = candidate.score;
+            // Extract Scores
+            const jambScore = candidate.profile.utmeResult?.jambScore || 0;
+            const waecGrades = candidate.profile.examResults.map(r => r.grade);
+            const postUtmeScore = candidate.profile.utmeResult?.postUtmeScore || 0;
 
-            return meritEngine.computeMeritIndex(
-                candidate.profile.did,
-                program,
-                examScore,
-                { min: 0, max: 1000 }, // Increased range to handle test duplicates
-                10000, // Difficulty 1.0
-                { aggregate: 10000 }, // Weight 1.0
+            const mi = meritEngine.computeAdvancedMeritIndex(jambScore, waecGrades, postUtmeScore);
+
+            return {
+                id: crypto.randomUUID(),
+                applicantId: candidate.profile.did,
+                programId: program,
+                examScore: jambScore, // Keeping for reference
+                normalizedScore: 0, // Legacy
+                subjectWeights: {},
+                programDifficulty: 10000,
                 priorityFlags,
-                new Date().toISOString() // Should use application timestamp
-            );
+                priorityBoost: 0,
+                penalties: 0,
+                mi,
+                computedAt: new Date().toISOString(),
+                explain: {
+                    normalization: { method: "advanced", min: 0, max: 100, value: mi },
+                    base: mi,
+                    difficultyApplied: mi,
+                    priorityBoost: 0,
+                    penalties: 0,
+                    mi
+                }
+            };
         });
 
-        // 4. Sort Deterministically
-        // Sort by MI DESC, then Timestamp ASC, then ID ASC
+        // 4. Sort Deterministically (MI DESC)
         rankedList.sort((a, b) => {
             if (b.mi !== a.mi) return b.mi - a.mi;
-            // Timestamp comparison (string ISO)
             if (a.computedAt !== b.computedAt) return a.computedAt.localeCompare(b.computedAt);
             return a.applicantId.localeCompare(b.applicantId);
         });
 
-        // 5. Allocate Seats
-        const result = quotaEngine.allocateSeats(rankedList, quotaRule);
+        // 5. Allocate Seats (Quota Logic: 70/20/10)
+        const totalQuota = admissionRule.enforcement.finalQuota;
+        const qMerit = Math.floor(totalQuota * 0.70);
+        const qCatchment = Math.floor(totalQuota * 0.20);
+        const qElds = totalQuota - qMerit - qCatchment;
+
+        const admitted: Allocation[] = [];
+        const waitlisted: ApplicantScore[] = [];
+
+        const remainingPool = [...rankedList];
+
+        // Helper to move students to admitted
+        const admitTop = (count: number, bucketId: string, filter?: (a: ApplicantScore) => boolean) => {
+            let admittedCount = 0;
+            for (let i = 0; i < remainingPool.length; i++) {
+                if (admittedCount >= count) break;
+                const candidate = remainingPool[i];
+                if (!filter || filter(candidate)) {
+                    admitted.push({
+                        id: crypto.randomUUID(),
+                        applicantId: candidate.applicantId,
+                        programId: program,
+                        bucketId: bucketId,
+                        allocatedAt: new Date().toISOString(),
+                        mi: candidate.mi,
+                        rankInBucket: admitted.length + 1,
+                        evidence: {
+                            score: candidate.mi,
+                            bucket: bucketId
+                        }
+                    });
+                    remainingPool.splice(i, 1);
+                    i--; // Adjust index
+                    admittedCount++;
+                }
+            }
+            return count - admittedCount; // Return leftovers
+        };
+
+        // A. Merit Bucket
+        admitTop(qMerit, 'MERIT');
+
+        // B. Catchment Bucket
+        const catchmentLeftover = admitTop(qCatchment, 'CATCHMENT', (c) => c.priorityFlags.catchment);
+
+        // C. ELDS Bucket
+        const eldsLeftover = admitTop(qElds, 'ELDS', (c) => c.priorityFlags.elds);
+
+        // D. Transfer Leftovers to Merit
+        const totalLeftover = catchmentLeftover + eldsLeftover;
+        if (totalLeftover > 0) {
+            admitTop(totalLeftover, 'MERIT_LEFTOVER');
+        }
+
+        // Rest are waitlisted
+        waitlisted.push(...remainingPool);
 
         return {
-            admitted: result.allocations,
-            waitlisted: result.waitlist
+            admitted,
+            waitlisted
         };
     }
 }

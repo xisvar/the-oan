@@ -1,0 +1,29 @@
+{
+    "institutions": [
+        {
+            "did": "did:oan:institution:unilag",
+            "name": "University of Lagos",
+            "code": "UNILAG"
+        },
+        {
+            "did": "did:oan:institution:unn",
+            "name": "University of Nigeria Nsukka",
+            "code": "UNN"
+        },
+        {
+            "did": "did:oan:institution:abu",
+            "name": "Ahmadu Bello University",
+            "code": "ABU"
+        },
+        {
+            "did": "did:oan:institution:ui",
+            "name": "University of Ibadan",
+            "code": "UI"
+        },
+        {
+            "did": "did:oan:institution:lasu",
+            "name": "Lagos State University",
+            "code": "LASU"
+        }
+    ]
+}
