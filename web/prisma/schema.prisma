@@ -1,0 +1,25 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite" // Switch to "postgresql" for production
+  url      = env("DATABASE_URL")
+}
+
+model LedgerEvent {
+  id        String   @id @default(uuid())
+  type      String
+  payload   String   // JSON string
+  prevHash  String
+  hash      String   @unique
+  signature String
+  timestamp DateTime @default(now())
+  actor     String
+
+  @@index([hash])
+  @@index([prevHash])
+}
